@@ -1,8 +1,10 @@
-use std::{path::PathBuf, time::Instant};
+use std::{io::Write, path::PathBuf, time::Instant};
 
 use clap::{Parser, Subcommand};
 
-use rpykit::archive::{extract::ExtractMode, guess_number_of_threads, parallel, sequential};
+use rpykit::archive::{
+    Archive, extract::ExtractMode, guess_number_of_threads, parallel, sequential,
+};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -11,11 +13,19 @@ struct Cli {
     command: Command,
 }
 
-// TODO: Implement subcommands:
-//   list
-//   debug-inspect
 #[derive(Subcommand)]
 enum Command {
+    /// List files in RPA archives without extracting them
+    #[command(aliases = ["t", "list"])]
+    Inspect {
+        /// Show file sizes in bytes alongside names
+        #[arg(short, long)]
+        verbose: bool,
+
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
+    },
+
     /// Extract RPA archives
     #[command(aliases = ["x"])]
     Extract {
@@ -32,10 +42,42 @@ enum Command {
     },
 }
 
+fn inspect(files: &[PathBuf], verbose: bool) -> Result<(), String> {
+    let mut output = std::io::stdout().lock();
+
+    for path in files {
+        let archive =
+            Archive::read_from_file(path).map_err(|err| format!("{}: {err:?}", path.display()))?;
+
+        let mut entries: Vec<_> = archive.index.iter().collect();
+        entries.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
+
+        for (name, entry) in entries {
+            let result = if verbose {
+                writeln!(output, "{:>12} {}", entry.len, name)
+            } else {
+                writeln!(output, "{}", name)
+            };
+
+            result.map_err(|err| format!("Failed to write listing: {err}"))?;
+        }
+    }
+
+    output
+        .flush()
+        .map_err(|err| format!("Failed to write listing: {err}"))
+}
+
 fn main() {
     let cli = Cli::parse();
 
     match cli.command {
+        Command::Inspect { verbose, files } => {
+            if let Err(err) = inspect(&files, verbose) {
+                eprintln!("Error: {err}");
+                std::process::exit(1);
+            }
+        }
         Command::Extract {
             output_dir,
             num_threads,
