@@ -53,6 +53,7 @@ impl FromStr for Version {
 
 #[derive(Debug)]
 pub enum ArchiveError {
+    FailedToOpenArchive(std::io::Error),
     FileTooSmall {
         expected_bytes: usize,
         err: std::io::Error,
@@ -95,7 +96,7 @@ pub struct Archive {
 
 impl Archive {
     pub fn read_from_file<P: AsRef<Path>>(path: P) -> Result<Archive, ArchiveError> {
-        let file = File::open(path.as_ref()).unwrap();
+        let file = File::open(path.as_ref()).map_err(ArchiveError::FailedToOpenArchive)?;
 
         let (header, index) = read_header_and_index(file)?;
 
