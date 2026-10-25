@@ -19,6 +19,10 @@ pub fn read_archives(
     paths: Vec<PathBuf>,
     num_threads: usize,
 ) -> (HashMap<PathBuf, Archive>, Vec<ArchiveError>) {
+    if paths.is_empty() {
+        return (HashMap::new(), Vec::new());
+    }
+
     let chunk_size = paths.len().div_ceil(num_threads);
 
     let handles: Vec<_> = paths
@@ -68,6 +72,10 @@ pub fn extract<P: AsRef<Path>>(
     entries: Vec<(String, UnifiedIndexEntry)>,
     num_threads: usize,
 ) -> Vec<ExtractError> {
+    if entries.is_empty() {
+        return Vec::new();
+    }
+
     let chunk_size = entries.len().div_ceil(num_threads);
 
     let path = path.as_ref().to_path_buf();
