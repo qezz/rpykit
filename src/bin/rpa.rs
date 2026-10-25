@@ -27,6 +27,7 @@ enum Command {
         #[arg(long, short = 'j')]
         num_threads: Option<usize>,
 
+        #[arg(required = true)]
         files: Vec<PathBuf>,
     },
 }
